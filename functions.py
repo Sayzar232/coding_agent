@@ -16,11 +16,18 @@ def get_folder_structure(start_path=None) -> dict:
         else:
             structure[item] = None
 
-    return structure
+    return structure if structure else "No files found in the directory."
 
 
 def get_file_content(file_name):
-    with open(file_name, "r", encoding="utf-8") as f:
+    file_path = os.path.join(WORKSPACE_PATH, file_name) if WORKSPACE_PATH else file_name
+    with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
     return content
+
+
+def write_file_content(file_name, content):
+    file_path = os.path.join(WORKSPACE_PATH, file_name) if WORKSPACE_PATH else file_name
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)

@@ -5,7 +5,7 @@ from openai import BadRequestError
 from pathlib import Path
 import json
 from tools import tools
-from functions import get_folder_structure, get_file_content
+from functions import get_folder_structure, get_file_content, write_file_content, SYSTEM_PROMPT
 from config import API_KEY
 
 
@@ -77,7 +77,8 @@ class Agent:
             response = self.client.interactions.create(
                 model="gemini-3.5-flash-lite",
                 input=self.context.history,
-                tools=tools
+                tools=tools,
+                system_instruction=SYSTEM_PROMPT
             )
         except BadRequestError as e:
             print("Ошибка API:", e)
@@ -142,6 +143,30 @@ class Agent:
                                 tool_id=step.id,
                                 name=step.name,
                                 content="No file name provided."
+                            )
+                    elif step.name == "write_file":
+                        file_name = step.arguments.get("file_name")
+                        content = step.arguments.get("content")
+                        print("Вызов функции 'write_file'\n")
+                        if file_name and content is not None:
+                            try:
+                                write_file_content(file_name, content)
+                                self.context.add_tool_call_output(
+                                    tool_id=step.id,
+                                    name=step.name,
+                                    content=f"File '{file_name}' written successfully."
+                                )
+                            except Exception as e:
+                                self.context.add_tool_call_output(
+                                    tool_id=step.id,
+                                    name=step.name,
+                                    content=f"Error writing to file '{file_name}': {e}"
+                                )
+                        else:
+                            self.context.add_tool_call_output(
+                                tool_id=step.id,
+                                name=step.name,
+                                content="File name or content not provided."
                             )
                     else:
                         raise ValueError(f"Unknown tool name: {step.name}")
