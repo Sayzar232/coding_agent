@@ -5,8 +5,8 @@ from openai import BadRequestError
 from pathlib import Path
 import json
 from tools import tools
-from functions import get_folder_structure, get_file_content, write_file_content, SYSTEM_PROMPT
-from config import API_KEY
+from functions import get_folder_structure, get_file_content, write_file_content
+from config import API_KEY, SYSTEM_PROMPT
 
 
 class AgentContext:
@@ -30,19 +30,6 @@ class AgentContext:
             ]
         }
         self.history.append(prompt)
-
-    def add_tool_call(self, tool_id, name, arguments):
-        self.history.append({
-            "role": "assistant",
-            "tool_calls": [{
-                "id": tool_id,
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "arguments": arguments
-                }
-            }]
-        })
 
     def add_tool_call_output(self, tool_id, name, content):
         self.history.append(
@@ -94,6 +81,87 @@ class Agent:
                 break
         return is_function_call
 
+    def handle_view_files_tool(self, step):
+        folder_structure = get_folder_structure()
+
+        self.context.add_tool_call_output(
+            tool_id=step.id,
+            name=step.name,
+            content=json.dumps(folder_structure)
+        )
+
+    def handle_read_file_tool(self, step):
+        file_name = step.arguments.get("file_name")
+
+        if file_name:
+            try:
+                content = get_file_content(file_name)
+                self.context.add_tool_call_output(
+                    tool_id=step.id,
+                    name=step.name,
+                    content=content
+                )
+
+            except FileNotFoundError:
+                self.context.add_tool_call_output(
+                    tool_id=step.id,
+                    name=step.name,
+                    content=f"File '{file_name}' not found."
+                )
+
+        else:
+            self.context.add_tool_call_output(
+                tool_id=step.id,
+                name=step.name,
+                content="No file name provided."
+            )
+
+    def handle_write_file_tool(self, step):
+        file_name = step.arguments.get("file_name")
+        content = step.arguments.get("content")
+
+        if file_name and content is not None:
+            try:
+                write_file_content(file_name, content)
+                self.context.add_tool_call_output(
+                    tool_id=step.id,
+                    name=step.name,
+                    content=f"File '{file_name}' written successfully."
+                )
+        
+            except Exception as e:
+                self.context.add_tool_call_output(
+                    tool_id=step.id,
+                    name=step.name,
+                    content=f"Error writing to file '{file_name}': {e}"
+                )
+        
+        else:
+            self.context.add_tool_call_output(
+                tool_id=step.id,
+                name=step.name,
+                content="File name or content not provided."
+            )
+
+    def handle_tools(self, response):
+        for step in response.steps:
+            if step.type == "function_call":
+                if step.name == "view_files":
+                    print("Вызов функции 'view_files'")
+                    self.handle_view_files_tool(step)
+
+                elif step.name == "read_file":
+                    print("Вызов функции 'read_file'")
+                    self.handle_read_file_tool(step)
+
+                elif step.name == "write_file":
+                    print("Вызов функции 'write_file'")
+                    self.handle_write_file_tool(step)
+
+                else:
+                    raise ValueError(f"Unknown tool name: {step.name}")
+
+
     def run(self):
         user_input = input("User: ")
 
@@ -111,62 +179,4 @@ class Agent:
                 user_input = input("User: ")
                 self.context.add_user_text(user_input)
 
-            for step in response.steps:
-                if step.type == "function_call":
-                    if step.name == "view_files":
-                        folder_structure = get_folder_structure()
-                        self.context.add_tool_call_output(
-                            tool_id=step.id,
-                            name=step.name,
-                            content=json.dumps(folder_structure)
-                        )
-                        print("Вызов функции 'view_files'")
-                    elif step.name == "read_file":
-                        file_name = step.arguments.get("file_name")
-                        print("Вызов функции 'read_file'")
-                        if file_name:
-                            try:
-                                content = get_file_content(file_name)
-                                self.context.add_tool_call_output(
-                                    tool_id=step.id,
-                                    name=step.name,
-                                    content=content
-                                )
-                            except FileNotFoundError:
-                                self.context.add_tool_call_output(
-                                    tool_id=step.id,
-                                    name=step.name,
-                                    content=f"File '{file_name}' not found."
-                                )
-                        else:
-                            self.context.add_tool_call_output(
-                                tool_id=step.id,
-                                name=step.name,
-                                content="No file name provided."
-                            )
-                    elif step.name == "write_file":
-                        file_name = step.arguments.get("file_name")
-                        content = step.arguments.get("content")
-                        print("Вызов функции 'write_file'\n")
-                        if file_name and content is not None:
-                            try:
-                                write_file_content(file_name, content)
-                                self.context.add_tool_call_output(
-                                    tool_id=step.id,
-                                    name=step.name,
-                                    content=f"File '{file_name}' written successfully."
-                                )
-                            except Exception as e:
-                                self.context.add_tool_call_output(
-                                    tool_id=step.id,
-                                    name=step.name,
-                                    content=f"Error writing to file '{file_name}': {e}"
-                                )
-                        else:
-                            self.context.add_tool_call_output(
-                                tool_id=step.id,
-                                name=step.name,
-                                content="File name or content not provided."
-                            )
-                    else:
-                        raise ValueError(f"Unknown tool name: {step.name}")
+            self.handle_tools(response)
