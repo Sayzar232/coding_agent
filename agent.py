@@ -5,7 +5,7 @@ from openai import BadRequestError
 from pathlib import Path
 import json
 from tools import tools
-from functions import get_folder_structure, get_file_content, write_file_content
+from functions import get_folder_structure, get_file_content, write_file_content, create_directory, edit_file_part
 from config import API_KEY, SYSTEM_PROMPT
 
 
@@ -143,6 +143,61 @@ class Agent:
                 content="File name or content not provided."
             )
 
+    def handle_create_directory_tool(self, step):
+        directory_name = step.arguments.get("directory_name")
+
+        if directory_name:
+            try:
+                create_directory(directory_name)
+                self.context.add_tool_call_output(
+                    tool_id=step.id,
+                    name=step.name,
+                    content=f"Directory '{directory_name}' created successfully."
+                )
+        
+            except Exception as e:
+                self.context.add_tool_call_output(
+                    tool_id=step.id,
+                    name=step.name,
+                    content=f"Error creating directory '{directory_name}': {e}"
+                )
+        
+        else:
+            self.context.add_tool_call_output(
+                tool_id=step.id,
+                name=step.name,
+                content="Directory name not provided."
+            )
+
+    def handle_edit_file_part_tool(self, step):
+        file_name = step.arguments.get("file_name")
+        start_line = step.arguments.get("start_line")
+        end_line = step.arguments.get("end_line")
+        new_content = step.arguments.get("new_content")
+
+        if file_name and start_line is not None and end_line is not None and new_content is not None:
+            try:
+                edit_file_part(file_name, start_line, end_line, new_content)
+                self.context.add_tool_call_output(
+                    tool_id=step.id,
+                    name=step.name,
+                    content=f"File '{file_name}' edited successfully from line {start_line} to {end_line}."
+                )
+        
+            except Exception as e:
+                self.context.add_tool_call_output(
+                    tool_id=step.id,
+                    name=step.name,
+                    content=f"Error editing file '{file_name}': {e}"
+                )
+        
+        else:
+            self.context.add_tool_call_output(
+                tool_id=step.id,
+                name=step.name,
+                content="File name, start line, end line, or new content not provided."
+            )
+
     def handle_tools(self, response):
         for step in response.steps:
             if step.type == "function_call":
@@ -157,6 +212,14 @@ class Agent:
                 elif step.name == "write_file":
                     print("Вызов функции 'write_file'")
                     self.handle_write_file_tool(step)
+
+                elif step.name == "create_directory":
+                    print("Вызов функции 'create_directory'")
+                    self.handle_create_directory_tool(step)
+
+                elif step.name == "edit_file_part":
+                    print("Вызов функции 'edit_file_part'")
+                    self.handle_edit_file_part_tool(step)
 
                 else:
                     raise ValueError(f"Unknown tool name: {step.name}")
