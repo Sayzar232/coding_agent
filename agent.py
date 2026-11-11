@@ -58,6 +58,13 @@ class Agent:
         self.client = genai.Client(api_key=API_KEY)
         self.context = AgentContext()
         self.loop = True
+        self.tools_dict = {
+            "read_file": self.handle_read_file_tool,
+            "view_files": self.handle_view_files_tool,
+            "write_file": self.handle_write_file_tool,
+            "create_directory": self.handle_create_directory_tool,
+            "edit_file_part": self.handle_edit_file_part_tool
+        }
 
     def request_chat(self):
         try:
@@ -81,7 +88,18 @@ class Agent:
                 break
         return is_function_call
 
+    def print_tool_call(self, step):
+        print(f"Вызов функции '{step.name}'")
+        print("Аргументы:")
+        for key, value in step.arguments.items():
+            value = str(value)
+            if len(value) > 64:
+                value = value[:64] + "..."
+            print(f"  {key}: {value}")
+
     def handle_view_files_tool(self, step):
+        self.print_tool_call(step)
+
         folder_structure = get_folder_structure()
 
         self.context.add_tool_call_output(
@@ -91,6 +109,8 @@ class Agent:
         )
 
     def handle_read_file_tool(self, step):
+        self.print_tool_call(step)
+
         file_name = step.arguments.get("file_name")
 
         if file_name:
@@ -117,6 +137,7 @@ class Agent:
             )
 
     def handle_write_file_tool(self, step):
+        self.print_tool_call(step)
         file_name = step.arguments.get("file_name")
         content = step.arguments.get("content")
 
@@ -144,6 +165,8 @@ class Agent:
             )
 
     def handle_create_directory_tool(self, step):
+        self.print_tool_call(step)
+
         directory_name = step.arguments.get("directory_name")
 
         if directory_name:
@@ -170,10 +193,12 @@ class Agent:
             )
 
     def handle_edit_file_part_tool(self, step):
+        self.print_tool_call(step)
         file_name = step.arguments.get("file_name")
         start_line = step.arguments.get("start_line")
         end_line = step.arguments.get("end_line")
-        new_content = step.arguments.get("new_content")
+        new_content = step.arguments.get("content")
+        print(new_content)
 
         if file_name and start_line is not None and end_line is not None and new_content is not None:
             try:
@@ -201,29 +226,10 @@ class Agent:
     def handle_tools(self, response):
         for step in response.steps:
             if step.type == "function_call":
-                if step.name == "view_files":
-                    print("Вызов функции 'view_files'")
-                    self.handle_view_files_tool(step)
-
-                elif step.name == "read_file":
-                    print("Вызов функции 'read_file'")
-                    self.handle_read_file_tool(step)
-
-                elif step.name == "write_file":
-                    print("Вызов функции 'write_file'")
-                    self.handle_write_file_tool(step)
-
-                elif step.name == "create_directory":
-                    print("Вызов функции 'create_directory'")
-                    self.handle_create_directory_tool(step)
-
-                elif step.name == "edit_file_part":
-                    print("Вызов функции 'edit_file_part'")
-                    self.handle_edit_file_part_tool(step)
-
-                else:
+                if step.name not in self.tools_dict:
                     raise ValueError(f"Unknown tool name: {step.name}")
 
+                self.tools_dict[step.name](step)
 
     def run(self):
         user_input = input("User: ")

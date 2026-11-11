@@ -44,13 +44,20 @@ def create_directory(directory_name):
 def edit_file_part(file_name, start_line, end_line, new_content):
     file_path = os.path.join(WORKSPACE_PATH, file_name) if WORKSPACE_PATH else file_name
 
+    if start_line < 1 or end_line < start_line:
+        raise ValueError("Ожидается 1 <= start_line <= end_line")
+
     with open(file_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    for i in lines [start_line - 1:end_line]:
-        lines.remove(i)
+    if end_line > len(lines):
+        raise ValueError(f"В файле только {len(lines)} строк")
 
-    lines.insert(start_line - 1, new_content + "\n")
+    replacement = new_content.splitlines(keepends=True)
+    if replacement and not replacement[-1].endswith(("\n", "\r")):
+        replacement[-1] += "\n"
+
+    lines[start_line - 1:end_line] = replacement
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.writelines(lines)
