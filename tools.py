@@ -88,4 +88,20 @@ edit_file_part = {
     }
 }
 
-tools = [file_read_tool, directory_explore_tool, write_file_tool, create_directory_tool, edit_file_part]
+run_command_tool = {
+    "type": "function",
+    "name": "run_command",
+    "description": "run a PowerShell command in the project folder",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "command": {
+                "type": "string",
+                "description": "PowerShell command to execute"
+            }
+        },
+        "required": ["command"]
+    }
+}
+
+tools = [file_read_tool, directory_explore_tool, write_file_tool, create_directory_tool, edit_file_part, run_command_tool]

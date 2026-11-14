@@ -5,7 +5,7 @@ from openai import BadRequestError
 from pathlib import Path
 import json
 from tools import tools
-from functions import get_folder_structure, get_file_content, write_file_content, create_directory, edit_file_part
+from functions import get_folder_structure, get_file_content, write_file_content, create_directory, edit_file_part, execute_powershell_command
 from config import API_KEY, SYSTEM_PROMPT
 
 
@@ -63,7 +63,8 @@ class Agent:
             "view_files": self.handle_view_files_tool,
             "write_file": self.handle_write_file_tool,
             "create_directory": self.handle_create_directory_tool,
-            "edit_file_part": self.handle_edit_file_part_tool
+            "edit_file_part": self.handle_edit_file_part_tool,
+            "run_command": self.handle_run_command_tool
         }
 
     def request_chat(self):
@@ -221,6 +222,33 @@ class Agent:
                 tool_id=step.id,
                 name=step.name,
                 content="File name, start line, end line, or new content not provided."
+            )
+
+    def handle_run_command_tool(self, step):
+        self.print_tool_call(step)
+        command = step.arguments.get("command")
+
+        if command:
+            try:
+                output = execute_powershell_command(command)
+                self.context.add_tool_call_output(
+                    tool_id=step.id,
+                    name=step.name,
+                    content=f"Command executed successfully. Output:\n{output}"
+                )
+        
+            except Exception as e:
+                self.context.add_tool_call_output(
+                    tool_id=step.id,
+                    name=step.name,
+                    content=f"Error executing command '{command}': {e}"
+                )
+        
+        else:
+            self.context.add_tool_call_output(
+                tool_id=step.id,
+                name=step.name,
+                content="Command not provided."
             )
 
     def handle_tools(self, response):

@@ -1,4 +1,5 @@
 import os
+import subprocess
 from config import WORKSPACE_PATH
 
 
@@ -61,3 +62,32 @@ def edit_file_part(file_name, start_line, end_line, new_content):
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.writelines(lines)
+
+def execute_powershell_command(command):
+    try:
+        result = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                command,
+            ],
+            cwd=WORKSPACE_PATH or os.getcwd(),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        output = result.stdout
+        if result.stderr:
+            output += "\n" + result.stderr
+        if result.returncode != 0:
+            output += f"\nКод завершения: {result.returncode}"
+
+        return output or "(команда ничего не вывела)"
+    except subprocess.TimeoutExpired:
+        return "Команда превысила лимит времени (30 секунд)"
+    except OSError as e:
+        return f"Не удалось запустить PowerShell: {e}"
