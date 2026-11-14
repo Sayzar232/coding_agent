@@ -114,84 +114,50 @@ class Agent:
 
         file_name = step.arguments.get("file_name")
 
-        if file_name:
-            try:
-                content = get_file_content(file_name)
-                self.context.add_tool_call_output(
-                    tool_id=step.id,
-                    name=step.name,
-                    content=content
-                )
+        try:
+            content = get_file_content(file_name)
+        except Exception as e:
+            content = f"Error reading file '{file_name}': {e}"
 
-            except FileNotFoundError:
-                self.context.add_tool_call_output(
-                    tool_id=step.id,
-                    name=step.name,
-                    content=f"File '{file_name}' not found."
-                )
-
-        else:
-            self.context.add_tool_call_output(
-                tool_id=step.id,
-                name=step.name,
-                content="No file name provided."
-            )
+        self.context.add_tool_call_output(
+            tool_id=step.id,
+            name=step.name,
+            content=content
+        )
 
     def handle_write_file_tool(self, step):
         self.print_tool_call(step)
         file_name = step.arguments.get("file_name")
         content = step.arguments.get("content")
 
-        if file_name and content is not None:
-            try:
-                write_file_content(file_name, content)
-                self.context.add_tool_call_output(
-                    tool_id=step.id,
-                    name=step.name,
-                    content=f"File '{file_name}' written successfully."
-                )
-        
-            except Exception as e:
-                self.context.add_tool_call_output(
-                    tool_id=step.id,
-                    name=step.name,
-                    content=f"Error writing to file '{file_name}': {e}"
-                )
-        
-        else:
-            self.context.add_tool_call_output(
-                tool_id=step.id,
-                name=step.name,
-                content="File name or content not provided."
-            )
+        try:
+            write_file_content(file_name, content)
+            output_message = f"File '{file_name}' written successfully."
+        except Exception as e:
+            output_message = f"Error writing to file '{file_name}': {e}"
+
+        self.context.add_tool_call_output(
+            tool_id=step.id,
+            name=step.name,
+            content=output_message
+        )
 
     def handle_create_directory_tool(self, step):
         self.print_tool_call(step)
 
         directory_name = step.arguments.get("directory_name")
 
-        if directory_name:
-            try:
-                create_directory(directory_name)
-                self.context.add_tool_call_output(
-                    tool_id=step.id,
-                    name=step.name,
-                    content=f"Directory '{directory_name}' created successfully."
-                )
-        
-            except Exception as e:
-                self.context.add_tool_call_output(
-                    tool_id=step.id,
-                    name=step.name,
-                    content=f"Error creating directory '{directory_name}': {e}"
-                )
-        
-        else:
-            self.context.add_tool_call_output(
-                tool_id=step.id,
-                name=step.name,
-                content="Directory name not provided."
-            )
+        try:
+            create_directory(directory_name)
+            output_message = f"Directory '{directory_name}' created successfully."
+        except Exception as e:
+            output_message = f"Error creating directory '{directory_name}': {e}"
+
+        self.context.add_tool_call_output(
+            tool_id=step.id,
+            name=step.name,
+            content=output_message
+        )
 
     def handle_edit_file_part_tool(self, step):
         self.print_tool_call(step)
@@ -199,57 +165,34 @@ class Agent:
         start_line = step.arguments.get("start_line")
         end_line = step.arguments.get("end_line")
         new_content = step.arguments.get("content")
-        print(new_content)
 
-        if file_name and start_line is not None and end_line is not None and new_content is not None:
-            try:
-                edit_file_part(file_name, start_line, end_line, new_content)
-                self.context.add_tool_call_output(
-                    tool_id=step.id,
-                    name=step.name,
-                    content=f"File '{file_name}' edited successfully from line {start_line} to {end_line}."
-                )
-        
-            except Exception as e:
-                self.context.add_tool_call_output(
-                    tool_id=step.id,
-                    name=step.name,
-                    content=f"Error editing file '{file_name}': {e}"
-                )
-        
-        else:
-            self.context.add_tool_call_output(
-                tool_id=step.id,
-                name=step.name,
-                content="File name, start line, end line, or new content not provided."
-            )
+        try:
+            edit_file_part(file_name, start_line, end_line, new_content)
+            output_message = f"File '{file_name}' edited successfully from line {start_line} to {end_line}."    
+        except Exception as e:
+            output_message = f"Error editing file '{file_name}': {e}"
+
+        self.context.add_tool_call_output(
+            tool_id=step.id,
+            name=step.name,
+            content=output_message
+        )
 
     def handle_run_command_tool(self, step):
         self.print_tool_call(step)
         command = step.arguments.get("command")
 
-        if command:
-            try:
-                output = execute_powershell_command(command)
-                self.context.add_tool_call_output(
-                    tool_id=step.id,
-                    name=step.name,
-                    content=f"Command executed successfully. Output:\n{output}"
-                )
-        
-            except Exception as e:
-                self.context.add_tool_call_output(
-                    tool_id=step.id,
-                    name=step.name,
-                    content=f"Error executing command '{command}': {e}"
-                )
-        
-        else:
-            self.context.add_tool_call_output(
-                tool_id=step.id,
-                name=step.name,
-                content="Command not provided."
-            )
+        try:
+            output = execute_powershell_command(command)
+            output_message = f"Command executed successfully. Output:\n{output}"
+        except Exception as e:
+            output_message = f"Error executing command '{command}': {e}"
+
+        self.context.add_tool_call_output(
+            tool_id=step.id,
+            name=step.name,
+            content=output_message
+        )
 
     def handle_tools(self, response):
         for step in response.steps:

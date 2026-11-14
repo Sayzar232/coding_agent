@@ -9,50 +9,75 @@ def get_folder_structure(start_path=None) -> dict:
 
     structure = {}
 
-    for item in os.listdir(start_path):
-        item_path = os.path.join(start_path, item)
+    try:
+        items = os.listdir(start_path)
+        for item in items:
+            item_path = os.path.join(start_path, item)
 
-        if os.path.isdir(item_path):
-            structure[item] = get_folder_structure(item_path)
-        else:
-            structure[item] = None
+            if os.path.isdir(item_path):
+                structure[item] = get_folder_structure(item_path)
+            else:
+                structure[item] = None
 
-    return structure if structure else "No files found in the directory."
+        return structure if structure else "No files found in the directory."
+
+    except FileNotFoundError:
+        return f"Directory '{start_path}' not found."
+    except Exception as e:
+        return f"Error accessing directory '{start_path}': {e}"
 
 
 def get_file_content(file_name):
     file_path = os.path.join(WORKSPACE_PATH, file_name) if WORKSPACE_PATH else file_name
     content = ""
 
-    with open(file_path, "r", encoding="utf-8") as f:
-        for count, line in enumerate(f.readlines()):
-            content += f"{count + 1}. {line}"
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            for count, line in enumerate(f.readlines()):
+                content += f"{count + 1}. {line}"
+    except FileNotFoundError:
+        content = f"File '{file_name}' not found."
+    except Exception as e:
+        content = f"Error reading file '{file_name}': {e}"
 
     return content
 
 
 def write_file_content(file_name, content):
     file_path = os.path.join(WORKSPACE_PATH, file_name) if WORKSPACE_PATH else file_name
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(content)
+
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+    except Exception as e:
+        raise IOError(f"Error writing to file '{file_name}': {e}")
 
 
 def create_directory(directory_name):
     directory_path = os.path.join(WORKSPACE_PATH, directory_name) if WORKSPACE_PATH else directory_name
-    os.makedirs(directory_path, exist_ok=True)
+
+    try:
+        os.makedirs(directory_path, exist_ok=True)
+    except Exception as e:
+        raise IOError(f"Error creating directory '{directory_name}': {e}")
 
 
 def edit_file_part(file_name, start_line, end_line, new_content):
     file_path = os.path.join(WORKSPACE_PATH, file_name) if WORKSPACE_PATH else file_name
 
     if start_line < 1 or end_line < start_line:
-        raise ValueError("Ожидается 1 <= start_line <= end_line")
+        raise ValueError("Expected 1 <= start_line <= end_line")
 
-    with open(file_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File '{file_name}' not found.")
+    except Exception as e:
+        raise IOError(f"Error reading file '{file_name}': {e}")
 
     if end_line > len(lines):
-        raise ValueError(f"В файле только {len(lines)} строк")
+        raise ValueError(f"File '{file_name}' only has {len(lines)} lines")
 
     replacement = new_content.splitlines(keepends=True)
     if replacement and not replacement[-1].endswith(("\n", "\r")):
@@ -60,8 +85,12 @@ def edit_file_part(file_name, start_line, end_line, new_content):
 
     lines[start_line - 1:end_line] = replacement
 
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.writelines(lines)
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except Exception as e:
+        raise IOError(f"Error writing to file '{file_name}': {e}")
+
 
 def execute_powershell_command(command):
     try:
@@ -84,10 +113,10 @@ def execute_powershell_command(command):
         if result.stderr:
             output += "\n" + result.stderr
         if result.returncode != 0:
-            output += f"\nКод завершения: {result.returncode}"
+            output += f"\nReturn code: {result.returncode}"
 
-        return output or "(команда ничего не вывела)"
+        return output or "(command produced no output)"
     except subprocess.TimeoutExpired:
-        return "Команда превысила лимит времени (30 секунд)"
+        return "Command exceeded time limit (30 seconds)"
     except OSError as e:
-        return f"Не удалось запустить PowerShell: {e}"
+        return f"Failed to execute PowerShell command: {e}"
